@@ -36,9 +36,11 @@ elif OPENAI_CONFIG['OPENAI_API_TYPE'] == 'openai':
     os.environ["OPENAI_API_KEY"] = OPENAI_CONFIG['OPENAI_KEY']
     llm = ChatOpenAI(
         temperature=0,
-        model_name='gpt-3.5-turbo-16k-0613', # or any other model with 8k+ context
+        model_name=OPENAI_CONFIG['MODEL_NAME'], # or any other model with 8k+ context
+        # model_name='gpt-3.5-turbo-16k-0613',
         max_tokens=1024,
-        request_timeout=60
+        request_timeout=60,
+        openai_api_base=OPENAI_CONFIG['OPENAI_API_BASE'],
     )
 
 
@@ -96,11 +98,21 @@ outputParser = OutputParser(sce, llm)
 output = None
 done = truncated = False
 frame = 0
+with open('record.txt','w') as f:
+    pass
 try:
     while not (done or truncated):
         sce.upateVehicles(obs, frame)
         DA.agentRun(output)
         da_output = DA.exportThoughts()
+        # with open('output.txt', 'a') as f:
+        #     if output:
+        #         for k in output.keys():
+        #             f.write(k+':'+output[k])
+        # with open('da_output.txt', 'a') as f:
+        #     if da_output:
+        #         for k in da_output.keys():
+        #             f.write(k+':'+da_output[k])
         output = outputParser.agentRun(da_output)
         env.render()
         env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame()

@@ -17,8 +17,9 @@ from langchain.agents.tools import Tool
 from LLMDriver.callbackHandler import CustomHandler
 from scenario.scenario import Scenario
 from LLMDriver.agent_propmts import SYSTEM_MESSAGE_PREFIX, SYSTEM_MESSAGE_SUFFIX, FORMAT_INSTRUCTIONS, HUMAN_MESSAGE, TRAFFIC_RULES, DECISION_CAUTIONS
+from LLMDriver.myChatOutputParser import myChatOutputParser
 
-
+    
 class DriverAgent:
     def __init__(
         self, llm: Union[ChatOpenAI, AzureChatOpenAI, OpenAI], toolModels: list, sce: Scenario,
@@ -58,6 +59,8 @@ class DriverAgent:
             early_stopping_method="generate",
         )
 
+        self.agent.agent.output_parser = myChatOutputParser()
+
     def agentRun(self, last_step_decision: dict):
         print(f'Decision at frame {self.sce.frame} is running ...')
         print('[green]Driver agent is running ...[/green]')
@@ -94,6 +97,7 @@ class DriverAgent:
         print(cb)
         print('[cyan]Final decision:[/cyan]')
         print(self.ch.memory[-1])
+        # import pdb;pdb.set_trace()
         self.dataCommit()
 
     def exportThoughts(self):
