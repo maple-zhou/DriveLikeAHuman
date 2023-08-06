@@ -1,5 +1,10 @@
 from scenario.scenario import Scenario
 from typing import Any
+from LLMDriver.myTools import getInvolvedVehicles
+from LLMDriver.myTools import safeCheckLane
+from LLMDriver.myTools import safeCheckIdle
+from LLMDriver.myTools import safeCheckAccelerate
+from LLMDriver.myTools import safeCheckDecelerate
 
 
 def prompts(name, description):
@@ -136,6 +141,105 @@ class getLaneInvolvedCar:
             return f"{leadingCar} and {rearingCar} is driving on {laneID}, and {leadingCar} is driving at {leading_car_vel}m/s in front of ego car for {distance} meters, while {rearingCar} is driving behind ego car. You need to make sure that your actions do not conflict with each of the vehicles mentioned."
 
 
+class isMovementSafe:
+    def __init__(self, sce: Scenario) -> None:
+        self.sce = sce
+    
+    @prompts(name='Is This Movement Safe',
+             description="""Useful when you what to check whether the movement you decided is safe. Make sure you use this tool before getting a answer. The input to this tool should be the movement you want to check, namely either 'LANE_RIGHT','LANE_LEFT','IDLE','SLOWER' or 'FASTER'.""")
+    def inference(self, mov: str) -> str:
+        ego = self.sce.vehicles["ego"]
+        laneID = ego.lane_id
+        match mov:
+            case 'LANE_RIGHT':
+                # The original turn right(left) logic is a bit different.
+                # Basically, you can change from lane_1 to lane_3 in one movement originally
+                # Turn right
+                if laneID == 'lane_3':
+                    return f"""You cannot turn right if you are on lane_3 since lane_3 is the rightmost lane. 'LANE_RIGHT' is not a valid movement, please rethink your input."""
+                elif laneID == 'lane_2':
+                    laneID = 'lane_3'
+                elif laneID == 'lane_1':
+                    laneID = 'lane_2'
+                elif laneID == 'lane_0':
+                    laneID = 'lane_1'
+                involvedCar = getInvolvedVehicles(self.sce, laneID)
+                for vk,vv in involvedCar.items():
+                    if vv is not None:
+                        ans,safe = safeCheckLane(self.sce, vv)
+                        if safe is False:
+                            break
+                    if safe is False:
+                        # In ans, we should tell LLM what is wrong.
+                        return ans
+                    else:
+                        return f'Changing lane to `{laneID}` is safe. You can do this safely.'
+      
+            case 'LANE_LEFT':
+                # Turn left
+                if laneID == 'lane_0':
+                    return f"""You cannot turn left if you are on lane_0 since lane_0 is the leftmost lane. 'LANE_LEFT' is not a valid movement, please rethink your input."""
+                elif laneID == 'lane_1':
+                    laneID = 'lane_0'
+                elif laneID == 'lane_2':
+                    laneID = 'lane_1'
+                elif laneID == 'lane_3':
+                    laneID = 'lane_2'
+                involvedCar = getInvolvedVehicles(self.sce, laneID)
+                for vk,vv in involvedCar.items():
+                    if vv is not None:
+                        ans,safe = safeCheckLane(self.sce, vv)
+                        if safe is False:
+                            break
+                    if safe is False:
+                        # In ans, we should tell LLM what is wrong.
+                        return ans
+                    else:
+                        return f'Changing lane to `{laneID}` is safe. You can do this safely.'
+
+            case 'IDLE':
+                involvedCar = getInvolvedVehicles(self.sce, laneID)
+                for vk,vv in involvedCar.items():
+                    if vv is not None:
+                        ans,safe = safeCheckIdle(self.sce, vv)
+                        if safe is False:
+                            break
+                    if safe is False:
+                        # In ans, we should tell LLM what is wrong.
+                        return ans
+                    else:
+                        return f'Changing lane to `{laneID}` is safe. You can do this safely.'
+            case 'SLOWER':
+                involvedCar = getInvolvedVehicles(self.sce, laneID)
+                for vk,vv in involvedCar.items():
+                    if vv is not None:
+                        ans,safe = safeCheckDecelerate(self.sce, vv)
+                        if safe is False:
+                            break
+                    if safe is False:
+                        # In ans, we should tell LLM what is wrong.
+                        return ans
+                    else:
+                        return f'Changing lane to `{laneID}` is safe. You can do this safely.'
+            case 'FASTER':  
+                involvedCar = getInvolvedVehicles(self.sce, laneID)
+                for vk,vv in involvedCar.items():
+                    if vv is not None:
+                        ans,safe = safeCheckAccelerate(self.sce, vv)
+                        if safe is False:
+                            break
+                    if safe is False:
+                        # In ans, we should tell LLM what is wrong.
+                        return ans
+                    else:
+                        return f'Changing lane to `{laneID}` is safe. You can do this safely.'
+            case _:
+                return f"""{mov} is not a valid movement, please rethink your input and make sure it is either 'LANE_RIGHT','LANE_LEFT','IDLE','SLOWER' or 'FASTER'."""
+        pass
+
+
+
+
 class isChangeLaneConflictWithCar:
     def __init__(self, sce: Scenario) -> None:
         self.sce = sce
@@ -143,7 +247,7 @@ class isChangeLaneConflictWithCar:
         self.VEHICLE_LENGTH = 5.0
 
     @prompts(name='Is Change Lane Confict With Car',
-             description="""useful when you want to know whether change lane to a specific lane is confict with a specific car, ONLY when your decision is change_lane_left or change_lane_right. The input to this tool should be a string of a comma separated string of two, representing the id of the lane you want to change to and the id of the car you want to check.""")
+             description="""useful when you want to know whether change lane to a specific lane is confict with a specific car, ONLY when your decision is change_lane_left or change_lane_right. Make sure you have use tool `getLaneInvolvedCar` first. The input to this tool should be a string of a comma separated string of two, representin/g the id of the lane you want to change to and the id of the car you want to check.""")
     def inference(self, inputs: str) -> str:
         laneID, vid = inputs.replace(' ', '').split(',')
         if vid not in self.sce.vehicles:
