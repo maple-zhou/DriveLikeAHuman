@@ -6,19 +6,12 @@ from gymnasium.wrappers import RecordVideo
 from langchain.chat_models import AzureChatOpenAI, ChatOpenAI
 
 from scenario.scenario import Scenario
-from LLMDriver.driverAgent import DriverAgent, SimpleDriverAgent
+from LLMDriver.driverAgent import SimpleDriverAgent
 from LLMDriver.outputAgent import OutputParser
-from LLMDriver.customTools import (
-    getAvailableActions,
-    getAvailableLanes,
-    getLaneInvolvedCar,
-    isChangeLaneConflictWithCar,
-    isAccelerationConflictWithCar,
-    isKeepSpeedConflictWithCar,
-    isDecelerationSafe,
-    isActionSafe,
-    isMovementSafe,
-)
+from LLMDriver.customTools import isMovementSafe
+
+
+
 
 OPENAI_CONFIG = yaml.load(open('config.yaml'), Loader=yaml.FullLoader)
 
@@ -62,7 +55,7 @@ config = {
         "type": "DiscreteMetaAction",
         "target_speeds": np.linspace(0, 32, 9),
     },
-    "duration": 10000,
+    "duration": 100,
     "vehicles_density": 2,
     "show_trajectories": True,
     "render_agent": True,
@@ -84,69 +77,47 @@ if not os.path.exists('results-db/'):
     os.mkdir('results-db')
 database = f"results-db/highwayv0.db"
 sce = Scenario(vehicleCount, database)
-toolModels = [
-    getAvailableActions(env),
-    getAvailableLanes(sce),
-    getLaneInvolvedCar(sce),
-    isChangeLaneConflictWithCar(sce),
-    isAccelerationConflictWithCar(sce),
-    isKeepSpeedConflictWithCar(sce),
-    isDecelerationSafe(sce),
-    isActionSafe(),
-]
-simpletoolModels = [isMovementSafe(sce)]
-DA = DriverAgent(llm, toolModels, sce, verbose=True)
-sDA = SimpleDriverAgent(llm,simpletoolModels, sce,verbose=True)
+# toolModels = [
+#     getAvailableActions(env),
+#     getAvailableLanes(sce),
+#     getLaneInvolvedCar(sce),
+#     isChangeLaneConflictWithCar(sce),
+#     isAccelerationConflictWithCar(sce),
+#     isKeepSpeedConflictWithCar(sce),
+#     isDecelerationSafe(sce),
+#     isActionSafe(),
+# ]
+
+# DA = DriverAgent(llm, toolModels, sce, verbose=True)
+
+toolModels = [isMovementSafe(sce=sce)]
+DA = SimpleDriverAgent(llm,toolModels, sce,verbose=True)
 outputParser = OutputParser(sce, llm)
 output = None
 done = truncated = False
 frame = 0
-# with open('record.txt','w') as f:
-#     pass
-# try:
-#     while not (done or truncated):
-#         sce.upateVehicles(obs, frame)
-#         DA.agentRun(output)
-#         da_output = DA.exportThoughts()
-#         # with open('output.txt', 'a') as f:
-#         #     if output:
-#         #         for k in output.keys():
-#         #             f.write(k+':'+output[k])
-#         # with open('da_output.txt', 'a') as f:
-#         #     if da_output:
-#         #         for k in da_output.keys():
-#         #             f.write(k+':'+da_output[k])
-#         output = outputParser.agentRun(da_output)
-#         env.render()
-#         env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame()
-#         obs, reward, done, info, _ = env.step(output["action_id"])
-#         print(output)
-#         print(f'Is {done} done')
-#         frame += 1
-# finally:
-#     env.close()
+
 
 with open('record.txt','w') as f:
     pass
+    #f.write(f"The current scenario is {sce.export2json()}\n")
 try:
     while not (done or truncated):
         sce.upateVehicles(obs, frame)
-        sDA.agentRun(output)
-        da_output = sDA.exportThoughts()
-        # with open('output.txt', 'a') as f:
-        #     if output:
-        #         for k in output.keys():
-        #             f.write(k+':'+output[k])
-        # with open('da_output.txt', 'a') as f:
-        #     if da_output:
-        #         for k in da_output.keys():
-        #             f.write(k+':'+da_output[k])
+        DA.agentRun(output)
+        
+        da_output = DA.exportThoughts()
+        # Inspect on intermediate thoughts
+        for k,v in da_output.items():
+            with open("log/da_output.txt",'a') as ff:
+                ff.write(k)
+                ff.write("\n")
+                ff.write(v)  
         output = outputParser.agentRun(da_output)
         env.render()
         env.unwrapped.automatic_rendering_callback = env.video_recorder.capture_frame()
         obs, reward, done, info, _ = env.step(output["action_id"])
         print(output)
-        print(f'Is {done} done')
         frame += 1
 finally:
     env.close()

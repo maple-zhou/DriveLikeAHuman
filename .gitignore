@@ -163,6 +163,8 @@ config.yaml
 
 log.txt
 
+log/
+
 results-video/
  
 results-db/
