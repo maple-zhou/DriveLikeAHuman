@@ -1,7 +1,7 @@
 OPENAI_API_TYPE: 'openai' #'azure'  OR 'openai'
 # for 'openai'
-OPENAI_KEY: 'sk-R78zmhkOsabT9GT02c33Ae1e011f454aA613C769A8D6F8A7' # your openai key
-OPENAI_API_BASE: 'https://api.dqwang.group/v1'
+OPENAI_KEY: 'sk-xxxxx' # your openai key
+OPENAI_API_BASE: 'xxxx'
 MODEL_NAME: 'gpt-3.5-turbo'
 # for 'azure'
 AZURE_MODEL: 'XXXXX' # your deploment_model_name 
